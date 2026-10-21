@@ -1,0 +1,8 @@
+# Binarios compilados
+busqueda_secuencial
+busqueda_mpi
+*.o
+
+# Salidas de pruebas
+*.log
+recuperado.txt
