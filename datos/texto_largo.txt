@@ -1,0 +1,3 @@
+Computacion Paralela y Distribuida.
+AES-128 cifra bloques de 16 bytes con una clave de 128 bits.
+Open MPI coordina procesos con paso de mensajes: tildes como aqui (aeiou).
