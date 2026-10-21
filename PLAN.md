@@ -22,11 +22,13 @@ Todo el equipo construye sobre `comun.h`, así que va primero.
 - [x] `busqueda_mpi.c`: estrategia cíclica base, terminación por `MPI_Allreduce`.
 - [x] `Makefile` del Proyecto 02 y archivos de datos de prueba.
 
-**María José — inciso 1 (cifrado/descifrado desde archivo)** ⬜
-- [ ] `aes_cifrado.c`: cifrar un `.txt` con clave de entrada y descifrar con la misma.
-      Usa las funciones ya listas en `comun.h`.
-- [ ] Capturas: texto original, cifrado y recuperado.
-- [ ] `README` del Proyecto 02 (reemplaza el del Lab 03).
+**María José — inciso 1 (cifrado/descifrado desde archivo)** ✅ código
+- [x] `aes_cifrado.c`: cifrar un `.txt` con clave de entrada y descifrar con la misma.
+      Usa las funciones ya listas en `comun.h`. Modos `-c`, `-d` y ciclo completo;
+      el archivo cifrado guarda IV + datos. Agregado al `Makefile` y `.gitignore`.
+- [x] Capturas: texto original, cifrado y recuperado (y casos de error).
+- [ ] `README` del Proyecto 02 (reemplaza el del Lab 03). Se cierra cuando Cindy
+      agregue `-s bloques|cantor` y se adapte `medir_speedup.sh`.
 
 **Cindy — incisos 3 y 4 (estrategia alternativa)** ⬜
 - [ ] Agregar a `busqueda_mpi.c` las opciones `-s bloques` y `-s cantor` con `-K`
@@ -53,8 +55,10 @@ Todo el equipo construye sobre `comun.h`, así que va primero.
 
 ## Cómo compilar y correr (WSL Ubuntu)
 ```bash
+sudo apt update   # sin esto, libssl-dev puede dar 404
 sudo apt install -y build-essential libssl-dev openmpi-bin libopenmpi-dev
 make
+./aes_cifrado -k 123456
 ./busqueda_secuencial -k 123456 -b 24
 mpirun -np 4 ./busqueda_mpi -k 123456 -b 24
 ```
