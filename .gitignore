@@ -1,8 +1,10 @@
 # Binarios compilados
 busqueda_secuencial
 busqueda_mpi
+aes_cifrado
 *.o
 
 # Salidas de pruebas
 *.log
 recuperado.txt
+*.enc

@@ -8,9 +8,12 @@ MPICC = mpicc
 CFLAGS = -std=c11 -O2 -Wall -Wextra
 LDLIBS = -lcrypto
 
-PROGRAMAS = busqueda_secuencial busqueda_mpi
+PROGRAMAS = busqueda_secuencial busqueda_mpi aes_cifrado
 
 all: $(PROGRAMAS)
+
+aes_cifrado: aes_cifrado.c comun.c comun.h
+	$(CC) $(CFLAGS) aes_cifrado.c comun.c -o $@ $(LDLIBS)
 
 busqueda_secuencial: busqueda_secuencial.c comun.c comun.h
 	$(CC) $(CFLAGS) busqueda_secuencial.c comun.c -o $@ $(LDLIBS)
@@ -25,6 +28,6 @@ datos/mensaje.txt:
 datos: datos/mensaje.txt
 
 clean:
-	rm -f $(PROGRAMAS)
+	rm -f $(PROGRAMAS) datos/*.enc recuperado.txt
 
 .PHONY: all clean datos
