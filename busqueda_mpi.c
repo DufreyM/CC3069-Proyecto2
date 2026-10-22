@@ -1,9 +1,26 @@
 /* CC3069 Proyecto 02 - busqueda_mpi.c
  * Busqueda paralela por fuerza bruta de una clave AES-128-CBC con Open MPI.
- * Estrategia base (ciclica): el proceso r prueba r, r+p, r+2p, ... y los
- * procesos sincronizan con MPI_Allreduce. La estrategia alternativa
- * (bloques/dovetailing) se agrega en buscar() via la opcion -s.
- * Uso: mpirun -np 4 ./busqueda_mpi [-f archivo] [-k clave] [-b bits] [-t seg] [-s ciclica] */
+ *
+ * Estrategias de distribucion (opcion -s):
+ *   ciclica  el proceso r prueba r, r+p, r+2p, ... (por defecto).
+ *   bloques  bloques intercalados de tamano K: el bloque global g lo prueba
+ *            el proceso g%p; cada proceso recorre [g*K, g*K+K).
+ *   cantor   dovetailing: la clave n cae en la anti-diagonal w del
+ *            emparejamiento de Cantor; el proceso r recorre las diagonales
+ *            w = r, r+p, r+2p, ... Asi el trabajo se reparte en franjas
+ *            diagonales y se exploran primero las claves pequenas.
+ *
+ * Terminacion ASINCRONA (incisos 3 y 4): no hay MPI_Allreduce por lote.
+ * Cada proceso avisa con MPI_Isend y sondea con MPI_Irecv / MPI_Test:
+ *   - cuando termina (encuentra la clave o agota su rango/tiempo) manda un
+ *     REPORTE al proceso 0;
+ *   - el proceso 0 cuenta reportes y, al hallar la clave o reunir p reportes,
+ *     difunde el FALLO/EXITO con la decision final;
+ *   - todos sondean ese aviso con MPI_Test y se detienen sin bloquearse.
+ *
+ * Uso: mpirun -np 4 ./busqueda_mpi [-f archivo] [-k clave] [-b bits]
+ *            [-t seg] [-s ciclica|bloques|cantor] [-K tam_bloque]
+ */
 
 #define _POSIX_C_SOURCE 200809L
 
@@ -19,10 +36,20 @@
 #include "comun.h"
 
 #define CLAVE_POR_DEFECTO UINT64_C(123456)
+#define BLOQUE_POR_DEFECTO UINT64_C(1024)
+
+#define TAG_REPORTE 101
+#define TAG_FIN 102
 
 #ifndef INTERVALO_REVISION
 #define INTERVALO_REVISION 4096
 #endif
+
+typedef enum {
+    EST_CICLICA = 0,
+    EST_BLOQUES,
+    EST_CANTOR
+} estrategia_t;
 
 typedef struct {
     const char *archivo;
@@ -30,7 +57,120 @@ typedef struct {
     int bits;
     uint64_t total;
     double limite;
+    estrategia_t estrategia;
+    uint64_t bloque;
 } opciones;
+
+/* Generador perezoso: entrega la siguiente candidata segun la estrategia.
+ * Devuelve 1 si escribio una candidata valida en *salida, 0 si se agoto. */
+typedef struct {
+    estrategia_t estrategia;
+    uint64_t total;
+    /* ciclica */
+    uint64_t candidata;
+    uint64_t paso;
+    /* bloques */
+    uint64_t b_inicio;
+    uint64_t b_actual;
+    uint64_t b_resto;
+    uint64_t b_salto;
+    /* cantor */
+    uint64_t diag;
+    uint64_t diag_pos;
+} generador;
+
+static uint64_t minimo(uint64_t a, uint64_t b)
+{
+    return a < b ? a : b;
+}
+
+static void generador_init(
+    generador *g, estrategia_t estrategia, int rank, int size,
+    uint64_t bloque, uint64_t total)
+{
+    memset(g, 0, sizeof(*g));
+    g->estrategia = estrategia;
+    g->total = total;
+
+    switch (estrategia) {
+    case EST_CICLICA:
+        g->candidata = (uint64_t)rank;
+        g->paso = (uint64_t)size;
+        break;
+    case EST_BLOQUES:
+        g->b_salto = (uint64_t)size * bloque;
+        g->b_inicio = (uint64_t)rank * bloque;
+        g->b_actual = g->b_inicio;
+        g->b_resto = g->b_inicio < total
+            ? minimo(bloque, total - g->b_inicio) : 0;
+        g->paso = bloque;
+        break;
+    case EST_CANTOR:
+        g->diag = (uint64_t)rank;
+        g->diag_pos = 0;
+        g->paso = (uint64_t)size;
+        break;
+    }
+}
+
+static int generador_siguiente(generador *g, uint64_t *salida)
+{
+    switch (g->estrategia) {
+    case EST_CICLICA:
+        if (g->candidata >= g->total) {
+            return 0;
+        }
+        *salida = g->candidata;
+        g->candidata += g->paso;
+        return 1;
+
+    case EST_BLOQUES:
+        if (g->b_resto == 0) {
+            g->b_inicio += g->b_salto;
+            if (g->b_inicio >= g->total) {
+                return 0;
+            }
+            g->b_actual = g->b_inicio;
+            g->b_resto = minimo(g->paso, g->total - g->b_inicio);
+        }
+        *salida = g->b_actual;
+        g->b_actual++;
+        g->b_resto--;
+        return 1;
+
+    case EST_CANTOR:
+        for (;;) {
+            uint64_t inicio = g->diag * (g->diag + 1) / 2;
+            if (inicio >= g->total) {
+                return 0;
+            }
+            if (g->diag_pos > g->diag) {
+                g->diag += g->paso;
+                g->diag_pos = 0;
+                continue;
+            }
+            uint64_t clave = inicio + g->diag_pos;
+            g->diag_pos++;
+            if (clave >= g->total) {
+                continue;
+            }
+            *salida = clave;
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+static const char *nombre_estrategia(estrategia_t estrategia)
+{
+    switch (estrategia) {
+    case EST_BLOQUES: return "bloques";
+    case EST_CANTOR:  return "cantor (dovetailing)";
+    case EST_CICLICA:
+    default:          return "ciclica";
+    }
+}
 
 static void fallar(const char *descripcion)
 {
@@ -44,13 +184,15 @@ static void uso(const char *programa)
 {
     fprintf(stderr,
         "Uso: mpirun -np <p> %s [-f archivo] [-k clave] [-b bits]"
-        " [-t segundos] [-s ciclica]\n"
+        " [-t segundos] [-s ciclica|bloques|cantor] [-K tam_bloque]\n"
         "  -f archivo   texto a cifrar (por defecto %s)\n"
         "  -k clave     clave secreta en decimal (por defecto %" PRIu64 ")\n"
         "  -b bits      explora 2^bits candidatas (1-%d, por defecto %d)\n"
         "  -t segundos  limite de tiempo; al cumplirse se estima el total\n"
-        "  -s ciclica   estrategia de distribucion (por defecto ciclica)\n",
-        programa, ARCHIVO_POR_DEFECTO, CLAVE_POR_DEFECTO, MAX_BITS, MAX_BITS);
+        "  -s modo      ciclica (defecto), bloques o cantor\n"
+        "  -K tam       tamano de bloque para -s bloques (por defecto %" PRIu64 ")\n",
+        programa, ARCHIVO_POR_DEFECTO, CLAVE_POR_DEFECTO, MAX_BITS, MAX_BITS,
+        BLOQUE_POR_DEFECTO);
 }
 
 static int leer_opciones(int argc, char *argv[], opciones *opt)
@@ -62,8 +204,10 @@ static int leer_opciones(int argc, char *argv[], opciones *opt)
     opt->secreto = CLAVE_POR_DEFECTO;
     opt->bits = MAX_BITS;
     opt->limite = 0.0;
+    opt->estrategia = EST_CICLICA;
+    opt->bloque = BLOQUE_POR_DEFECTO;
 
-    while ((opcion = getopt(argc, argv, "f:k:b:t:s:")) != -1) {
+    while ((opcion = getopt(argc, argv, "f:k:b:t:s:K:")) != -1) {
         switch (opcion) {
         case 'f':
             opt->archivo = optarg;
@@ -86,9 +230,21 @@ static int leer_opciones(int argc, char *argv[], opciones *opt)
             opt->limite = (double)valor;
             break;
         case 's':
-            if (strcmp(optarg, "ciclica") != 0) {
+            if (strcmp(optarg, "ciclica") == 0) {
+                opt->estrategia = EST_CICLICA;
+            } else if (strcmp(optarg, "bloques") == 0) {
+                opt->estrategia = EST_BLOQUES;
+            } else if (strcmp(optarg, "cantor") == 0) {
+                opt->estrategia = EST_CANTOR;
+            } else {
                 return 0;
             }
+            break;
+        case 'K':
+            if (!parse_u64(optarg, &valor) || valor == 0) {
+                return 0;
+            }
+            opt->bloque = valor;
             break;
         default:
             return 0;
@@ -103,61 +259,150 @@ static int leer_opciones(int argc, char *argv[], opciones *opt)
     return 1;
 }
 
-static uint64_t buscar_ciclica(
+/* Busqueda con terminacion asincrona (MPI_Isend/MPI_Irecv/MPI_Test).
+ * Cada proceso prueba candidatas de su generador; cuando termina avisa al
+ * proceso 0, que decide y difunde el resultado. */
+static uint64_t buscar(
     EVP_CIPHER_CTX *ctx, const texto_cifrado *cifrado,
     int rank, int size, const opciones *opt, double inicio, uint64_t *probadas)
 {
     unsigned char plano[MAX_CIFRADO];
-    uint64_t paso = (uint64_t)size;
-    uint64_t candidata = (uint64_t)rank;
+    generador gen;
+    generador_init(&gen, opt->estrategia, rank, size, opt->bloque, opt->total);
+
     uint64_t encontrada_local = CLAVE_NO_ENCONTRADA;
-    uint64_t encontrada = CLAVE_NO_ENCONTRADA;
+    uint64_t decision = CLAVE_NO_ENCONTRADA;
     uint64_t locales = 0;
+    int agotado = 0;
+    int reporte_enviado = 0;
     int detener = 0;
 
-    while (!detener) {
-        for (int i = 0;
-             i < INTERVALO_REVISION &&
-             candidata < opt->total &&
-             encontrada_local == CLAVE_NO_ENCONTRADA;
-             i++) {
-            int resultado = probar_clave(ctx, candidata, cifrado, plano);
+    /* Canal de reporte hacia el proceso 0 (cada proceso lo usa una vez). */
+    uint64_t reporte_valor = CLAVE_NO_ENCONTRADA;
+    MPI_Request req_reporte = MPI_REQUEST_NULL;
 
-            locales++;
+    /* El proceso 0 escucha reportes de todos; los demas escuchan el FIN. */
+    uint64_t buzon = CLAVE_NO_ENCONTRADA;
+    MPI_Request req_escucha = MPI_REQUEST_NULL;
+    int reportados = 0;
+    uint64_t clave_reportada = CLAVE_NO_ENCONTRADA;
 
-            if (resultado < 0) {
-                fallar("OpenSSL fallo al descifrar.");
-            }
+    /* Buffers del proceso 0 para difundir la decision final. */
+    MPI_Request *req_fin = NULL;
+    uint64_t fin_valor = CLAVE_NO_ENCONTRADA;
 
-            if (resultado == 1) {
-                encontrada_local = candidata;
-            }
-
-            candidata += paso;
+    if (rank == 0) {
+        MPI_Irecv(&buzon, 1, MPI_UINT64_T, MPI_ANY_SOURCE,
+                  TAG_REPORTE, MPI_COMM_WORLD, &req_escucha);
+        req_fin = malloc(sizeof(MPI_Request) * (size_t)size);
+        if (req_fin == NULL) {
+            fallar("sin memoria para la terminacion asincrona.");
         }
+        for (int i = 0; i < size; i++) {
+            req_fin[i] = MPI_REQUEST_NULL;
+        }
+    } else {
+        MPI_Irecv(&decision, 1, MPI_UINT64_T, 0,
+                  TAG_FIN, MPI_COMM_WORLD, &req_escucha);
+    }
 
-        MPI_Allreduce(&encontrada_local, &encontrada, 1,
-                      MPI_UINT64_T, MPI_MIN, MPI_COMM_WORLD);
+    while (!detener) {
+        /* 1. Probar un lote de candidatas (si aun queda trabajo). */
+        if (!agotado && encontrada_local == CLAVE_NO_ENCONTRADA) {
+            for (int i = 0; i < INTERVALO_REVISION; i++) {
+                uint64_t candidata;
 
-        if (encontrada != CLAVE_NO_ENCONTRADA) {
-            detener = 1;
-        } else {
-            int local_fin = candidata >= opt->total;
+                if (!generador_siguiente(&gen, &candidata)) {
+                    agotado = 1;
+                    break;
+                }
+
+                int resultado = probar_clave(ctx, candidata, cifrado, plano);
+                locales++;
+
+                if (resultado < 0) {
+                    fallar("OpenSSL fallo al descifrar.");
+                }
+                if (resultado == 1) {
+                    encontrada_local = candidata;
+                    break;
+                }
+            }
 
             if (opt->limite > 0.0 && MPI_Wtime() - inicio >= opt->limite) {
-                local_fin = 1;
+                agotado = 1;
+            }
+        }
+
+        /* 2. Si este proceso ya termino, reportar una sola vez al proceso 0. */
+        if (!reporte_enviado &&
+            (encontrada_local != CLAVE_NO_ENCONTRADA || agotado)) {
+            reporte_enviado = 1;
+            reporte_valor = encontrada_local;
+
+            if (rank == 0) {
+                /* El proceso 0 se contabiliza a si mismo sin mensajearse. */
+                reportados++;
+                if (reporte_valor != CLAVE_NO_ENCONTRADA) {
+                    clave_reportada = reporte_valor;
+                }
+            } else {
+                MPI_Isend(&reporte_valor, 1, MPI_UINT64_T, 0,
+                          TAG_REPORTE, MPI_COMM_WORLD, &req_reporte);
+            }
+        }
+
+        /* 3. Proceso 0: recoger reportes y, al decidir, difundir el FIN. */
+        if (rank == 0) {
+            int llego = 0;
+            MPI_Test(&req_escucha, &llego, MPI_STATUS_IGNORE);
+            if (llego) {
+                reportados++;
+                if (buzon != CLAVE_NO_ENCONTRADA) {
+                    clave_reportada = buzon;
+                }
+                MPI_Irecv(&buzon, 1, MPI_UINT64_T, MPI_ANY_SOURCE,
+                          TAG_REPORTE, MPI_COMM_WORLD, &req_escucha);
             }
 
-            int todos_fin = 0;
-
-            MPI_Allreduce(&local_fin, &todos_fin, 1,
-                          MPI_INT, MPI_LAND, MPI_COMM_WORLD);
-            detener = todos_fin;
+            if (clave_reportada != CLAVE_NO_ENCONTRADA || reportados >= size) {
+                decision = clave_reportada;
+                fin_valor = decision;
+                for (int d = 1; d < size; d++) {
+                    MPI_Isend(&fin_valor, 1, MPI_UINT64_T, d,
+                              TAG_FIN, MPI_COMM_WORLD, &req_fin[d]);
+                }
+                detener = 1;
+            }
+        } else {
+            /* 4. Los demas sondean el aviso de FIN sin bloquearse. */
+            int llego = 0;
+            MPI_Test(&req_escucha, &llego, MPI_STATUS_IGNORE);
+            if (llego) {
+                detener = 1;
+            }
         }
     }
 
+    /* Limpieza de las peticiones pendientes. */
+    if (rank == 0) {
+        MPI_Cancel(&req_escucha);
+        MPI_Wait(&req_escucha, MPI_STATUS_IGNORE);
+        for (int d = 1; d < size; d++) {
+            if (req_fin[d] != MPI_REQUEST_NULL) {
+                MPI_Wait(&req_fin[d], MPI_STATUS_IGNORE);
+            }
+        }
+        free(req_fin);
+    } else {
+        if (req_reporte != MPI_REQUEST_NULL) {
+            MPI_Wait(&req_reporte, MPI_STATUS_IGNORE);
+        }
+        /* req_escucha ya se completo al recibir el FIN (detener == 1). */
+    }
+
     *probadas = locales;
-    return encontrada;
+    return decision;
 }
 
 int main(int argc, char *argv[])
@@ -204,13 +449,18 @@ int main(int argc, char *argv[])
         unsigned char clave_aes[KEY_LEN];
 
         make_key(opt.secreto, clave_aes);
-        printf("Ejecucion: paralela (Open MPI, %d procesos, estrategia ciclica)\n", size);
+        printf("Ejecucion: paralela (Open MPI, %d procesos, estrategia %s)\n",
+               size, nombre_estrategia(opt.estrategia));
         printf("Archivo: %s (%zu bytes)\n", opt.archivo, largo_texto);
         printf("Clave secreta: %" PRIu64 "\n", opt.secreto);
         imprimir_hex("IV (hex): ", cifrado.iv, IV_LEN);
         imprimir_hex("Texto cifrado (hex): ", cifrado.datos, cifrado.longitud);
         printf("Frase de busqueda: \"%s\"\n", FRASE_BUSQUEDA);
-        printf("Rango explorado: 2^%d = %" PRIu64 " candidatas\n", opt.bits, opt.total);
+        printf("Rango explorado: 2^%d = %" PRIu64 " candidatas\n",
+               opt.bits, opt.total);
+        if (opt.estrategia == EST_BLOQUES) {
+            printf("Tamano de bloque (K): %" PRIu64 "\n", opt.bloque);
+        }
 
         if (opt.secreto >= opt.total) {
             printf("Aviso: la clave secreta esta fuera del rango explorado.\n");
@@ -232,7 +482,7 @@ int main(int argc, char *argv[])
     MPI_Barrier(MPI_COMM_WORLD);
     double inicio = MPI_Wtime();
 
-    uint64_t encontrada = buscar_ciclica(
+    uint64_t encontrada = buscar(
         ctx, &cifrado, rank, size, &opt, inicio, &probadas);
 
     double transcurrido_local = MPI_Wtime() - inicio;
@@ -257,8 +507,7 @@ int main(int argc, char *argv[])
             }
 
             printf("Resultado: ENCONTRADA\n");
-            printf("Clave encontrada: %" PRIu64 " (proceso %" PRIu64 ")\n",
-                   encontrada, encontrada % (uint64_t)size);
+            printf("Clave encontrada: %" PRIu64 "\n", encontrada);
             printf("Texto recuperado: %.*s\n",
                    largo_recuperado, (const char *)recuperado);
             printf("Verificacion: %s\n",
@@ -274,14 +523,10 @@ int main(int argc, char *argv[])
         printf("Tiempo: %.6f segundos\n", transcurrido);
         printf("Rendimiento: %.0f claves/s\n", rendimiento);
 
-        /* La clave k la prueba el proceso k%p en su intento (k/p)+1. */
         if (encontrada == CLAVE_NO_ENCONTRADA &&
             rendimiento > 0.0 && opt.secreto < opt.total) {
-            double intentos_proceso = (double)(opt.secreto / (uint64_t)size) + 1.0;
-            double ritmo_proceso = rendimiento / (double)size;
-
-            printf("Intentos del proceso dueno: %.0f\n", intentos_proceso);
-            imprimir_duracion("Tiempo estimado: ", intentos_proceso / ritmo_proceso);
+            imprimir_duracion("Tiempo estimado (rango completo): ",
+                              (double)opt.total / rendimiento);
         }
     }
 
