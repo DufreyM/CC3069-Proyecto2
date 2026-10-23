@@ -211,7 +211,8 @@ int main(int argc, char *argv[])
         double intentos = (double)opt.secreto + 1.0;
 
         printf("Intentos necesarios: %.0f\n", intentos);
-        imprimir_duracion("Tiempo estimado: ", intentos / rendimiento);
+        printf("Tiempo estimado hasta la clave (s): %.6g\n", intentos / rendimiento);
+        imprimir_duracion("Tiempo estimado hasta la clave: ", intentos / rendimiento);
     }
 
     OPENSSL_cleanse(clave_aes, sizeof(clave_aes));
