@@ -256,6 +256,12 @@ static int leer_opciones(int argc, char *argv[], opciones *opt)
     }
 
     opt->total = UINT64_C(1) << opt->bits;
+
+    /* Un bloque mayor al rango no aporta nada y desborda size*K en el
+     * generador (la busqueda nunca terminaria). */
+    if (opt->bloque > opt->total) {
+        opt->bloque = opt->total;
+    }
     return 1;
 }
 
