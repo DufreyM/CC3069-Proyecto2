@@ -27,37 +27,46 @@ Todo el equipo construye sobre `comun.h`, así que va primero.
       Usa las funciones ya listas en `comun.h`. Modos `-c`, `-d` y ciclo completo;
       el archivo cifrado guarda IV + datos. Agregado al `Makefile` y `.gitignore`.
 - [x] Capturas: texto original, cifrado y recuperado (y casos de error).
-- [ ] `README` del Proyecto 02 (reemplaza el del Lab 03). Se cierra cuando Cindy
-      agregue `-s bloques|cantor` y se adapte `medir_speedup.sh`.
+- [ ] `README` del Proyecto 02 (reemplaza el del Lab 03). Ya se puede cerrar:
+      las opciones finales son `-s ciclica|bloques|cantor`, `-K` (sub-bloques,
+      por defecto 16) y `-t`; scripts `medir_speedup.sh` y `bitacora.sh`.
 
-**Cindy — incisos 3 y 4 (estrategia alternativa)** 🟨 código listo
-- [x] Agregar a `busqueda_mpi.c` las opciones `-s bloques` y `-s cantor` con `-K`
-      (bloques intercalados / dovetailing), en el mismo programa que la cíclica.
-- [x] Terminación asíncrona con `MPI_Isend` / `MPI_Irecv` / `MPI_Test`: cada
-      proceso reporta al 0 y el 0 difunde el fin (reemplaza el `MPI_Allreduce`).
-      Probado con 1, 3 y 4 procesos, rango agotado y `-t`.
-- [ ] Diagramas de flujo y pseudocódigo de ambas estrategias (inciso 4).
-- [x] Validar `-K` contra el rango: con `-K` enorme (p. ej. 2^62 y 4 procesos)
-      `size*K` se desbordaba y la búsqueda no terminaba. Ahora `-K` se limita
-      a 2^bits (Leonardo).
+**Cindy — incisos 3 y 4 (estrategia alternativa)** ✅
+- [x] `-s bloques` y `-s cantor -K` en `busqueda_mpi.c`. Se reimplementaron como
+      en la propuesta: bloques **contiguos** de 2^bits/p por proceso, y cantor
+      parte cada bloque en K sub-bloques recorridos por turnos. (La primera
+      versión dejaba 2^54 en el intento ~2^52, igual que la cíclica.)
+- [x] Terminación asíncrona con `MPI_Isend` / `MPI_Irecv` / `MPI_Test`.
+- [x] `-K` limitado al tamaño del bloque (antes se desbordaba `size*K`).
+- [x] Arnés que verifica que ninguna clave se repite ni se omite (1-9 procesos).
+- [x] Diagramas en `diagrama/` (`generar_diagramas.py`): reparto de claves,
+      flujo de `busqueda_mpi.c` y secuencia de la terminación asíncrona.
+- [x] Pseudocódigo y explicación: `informe/inciso4_estrategia_alternativa.md`.
 
-### Fase 2 — Mediciones (después de que compile todo) — Leonardo + Cindy ⬜
-- [x] Adaptar `medir_speedup.sh` a los binarios del Proyecto 02 (clave y bits).
-- [ ] Agregar a `medir_speedup.sh` la estrategia (`-s`, `-K`) y el límite `-t`
-      para 2^54 / 2^54+1, que no terminan en tiempo razonable.
-- [ ] Pruebas a) 123456, b) 2^54, c) 2^54+1 con cíclica, bloques y dovetailing.
-- [ ] Capturas de compilación y de cada prueba.
-- [ ] Cálculo de Speedup = T_secuencial / T_paralelo.
+### Fase 2 — Mediciones — Leonardo + Cindy ✅ (faltan capturas)
+- [x] `medir_speedup.sh` con `-k -b -r -s -K -t`; usa el tiempo estimado si se
+      corta con `-t`.
+- [x] `bitacora.sh`: compila y corre a), b), c) y dos claves extra con cíclica,
+      bloques, cantor K=16 y K=256 → `resultados/NN_*.txt` y `resumen.md`.
+- [x] Speedups → `resultados/speedup_*.txt` (`resultados/correr_speedups.sh`).
+      Cíclica con 123456: S = 3.90 con 4 procesos.
+- [ ] **Capturas de pantalla** de compilación, cada prueba y las tablas de
+      speedup (correr los scripts y capturar; lista en `informe/anexo2_*.md`).
 
-### Fase 3 — Informe y entrega (al final, todos) ⬜
-- [ ] Majo: formato UVG, antecedentes, Anexo 1 (catálogo de funciones).
-- [ ] Leonardo: inciso 2d (por qué varía el tiempo) y Anexo 2 (bitácora y Speedup).
-- [ ] Cindy: comparación de estrategias, discusión y conclusiones.
-- [ ] Todos: revisión con `valgrind`, estilo, PDF final y `.zip` con el código.
+### Fase 3 — Informe y entrega (al final, todos) 🟨
+- [ ] Majo: formato UVG, antecedentes, Anexo 1 (catálogo de funciones). El
+      código ya está congelado; las secciones listas están en `informe/`.
+- [x] Leonardo: inciso 2 y 2d (`informe/inciso2_pruebas.md`) y Anexo 2
+      (`informe/anexo2_bitacora_speedup.md`).
+- [x] Cindy: comparación de estrategias (`informe/inciso3_comparacion.md`),
+      discusión, conclusiones y recomendaciones (`informe/discusion_conclusiones.md`).
+- [ ] Todos: revisar los textos, pegar capturas, `valgrind` (no está instalado
+      en el WSL de Leonardo: `sudo apt install valgrind`), PDF final y `.zip`.
 
 ## Reglas de coordinación
 - Nadie redefine el modo de cifrado ni `make_key`: todo sale de `comun.h`.
 - Cindy trabaja en el mismo `busqueda_mpi.c`, agregando su estrategia como opción `-s`.
+- Los diagramas se regeneran con `python diagrama/generar_diagramas.py` (matplotlib).
 - El Anexo 1 (catálogo de funciones) se hace al final, con el código ya congelado.
 
 ## Cómo compilar y correr (WSL Ubuntu)
@@ -67,5 +76,6 @@ sudo apt install -y build-essential libssl-dev openmpi-bin libopenmpi-dev
 make
 ./aes_cifrado -k 123456
 ./busqueda_secuencial -k 123456 -b 24
-mpirun -np 4 ./busqueda_mpi -k 123456 -b 24
+mpirun -np 4 ./busqueda_mpi -k 18014398509481984 -s cantor -K 16
+./bitacora.sh 10
 ```
