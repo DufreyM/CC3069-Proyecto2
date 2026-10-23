@@ -78,8 +78,10 @@ ejecutar() {
     fi
 }
 
-echo "Escenario: clave $KEY, 2^$BITS candidatas, estrategia $ESTRATEGIA" \
-     "(K = $SUBBLOQUES), $REPS repeticiones${LIMITE:+, limite $LIMITE s}"
+DETALLE=$ESTRATEGIA
+[ "$ESTRATEGIA" = cantor ] && DETALLE="cantor (K = $SUBBLOQUES)"
+echo "Escenario: clave $KEY, 2^$BITS candidatas, estrategia $DETALLE," \
+     "$REPS repeticiones${LIMITE:+, limite $LIMITE s}"
 echo
 
 echo "Verificacion de resultados:"
@@ -120,6 +122,6 @@ for n in 2 3 4; do
     awk -v n="$n" -v ts="$TS" -v s="${suma[$n]}" -v r="$REPS" -v k="${tipo[$n]}" 'BEGIN {
         tp = s / r
         sp = ts / tp
-        printf "| %-10s | %16.6g | %-8s | %9.4g | %9.1f%% |\n", n, tp, k, sp, 100 * sp / n
+        printf "| %-10s | %16.6g | %-8s | %9.4g | %9.4g%% |\n", n, tp, k, sp, 100 * sp / n
     }'
 done
