@@ -13,11 +13,14 @@ Los programas cifran un texto con AES-128 en modo CBC y luego buscan la clave po
 | `comun.h`, `comun.c` | Funciones compartidas: conversión del número a clave de 16 bytes, lectura de archivos, cifrado y descifrado AES-128-CBC y búsqueda de la frase |
 | `aes_cifrado.c` | Cifra un archivo `.txt` con una clave de entrada y lo descifra con la misma clave (inciso 1) |
 | `busqueda_secuencial.c` | Búsqueda de la clave por fuerza bruta en un solo proceso; es la referencia para el Speedup |
-| `busqueda_mpi.c` | Búsqueda paralela con Open MPI y las estrategias `ciclica`, `bloques` y `cantor` |
+| `busqueda_mpi.c` | Búsqueda paralela con Open MPI y las estrategias `ciclica`, `bloques` y `cantor` (dovetailing) |
 | `Makefile` | Compila los tres programas |
 | `medir_speedup.sh` | Compara la versión secuencial con la paralela (2, 3 y 4 procesos) y calcula Speedup y eficiencia |
+| `bitacora.sh` | Ejecuta todas las pruebas de los incisos 2 y 3 y guarda cada salida en `resultados/` |
 | `datos/` | Archivos de prueba: `mensaje.txt` (texto del enunciado), `texto_largo.txt` (varias líneas) y `vacio.txt` |
-| `diagrama/` | Diagrama de flujo de AES-128 (imagen y archivo editable de draw.io) |
+| `resultados/` | Salidas de `bitacora.sh`, resumen de las pruebas (`resumen.md`), tablas de Speedup y `correr_speedups.sh`, que las genera |
+| `informe/` | Secciones del informe: incisos 2, 3 y 4, discusión y conclusiones, y Anexo 2 (bitácora y speedups) |
+| `diagrama/` | Diagrama de flujo de AES-128 (imagen y archivo de draw.io) y diagramas del inciso 4: reparto de claves, flujo de `busqueda_mpi` y terminación asíncrona, generados con `generar_diagramas.py` |
 
 ## Requisitos
 
@@ -29,6 +32,8 @@ sudo apt install -y build-essential libssl-dev openmpi-bin libopenmpi-dev
 ```
 
 Sin el `apt update`, la instalación de `libssl-dev` puede fallar con un error 404.
+
+Para volver a generar los diagramas del inciso 4 se necesita Python con `matplotlib`.
 
 ## Compilar
 
@@ -64,7 +69,7 @@ Sin `-c` ni `-d`, el programa hace el ciclo completo y verifica que el texto rec
 ```bash
 ./busqueda_secuencial -k 123456
 ./busqueda_secuencial -k 123456 -b 24
-./busqueda_secuencial -k 18014398509481984 -t 60
+./busqueda_secuencial -k 18014398509481984 -t 10
 ```
 
 | Opción | Descripción | Por defecto |
@@ -72,14 +77,15 @@ Sin `-c` ni `-d`, el programa hace el ciclo completo y verifica que el texto rec
 | `-f archivo` | Texto a cifrar | `datos/mensaje.txt` |
 | `-k clave` | Clave secreta en decimal | `123456` |
 | `-b bits` | Explora 2^bits candidatas (1 a 56) | `56` |
-| `-t segundos` | Límite de tiempo; al cumplirse estima el tiempo total | sin límite |
+| `-t segundos` | Límite de tiempo; al cumplirse estima el tiempo hasta la clave | sin límite |
 
 ### Búsqueda paralela: `busqueda_mpi`
 
 ```bash
 mpirun -np 4 ./busqueda_mpi -k 123456
-mpirun -np 4 ./busqueda_mpi -k 123456 -s cantor
-mpirun -np 4 ./busqueda_mpi -k 18014398509481984 -s bloques -K 18014398509481984
+mpirun -np 4 ./busqueda_mpi -k 18014398509481984 -s bloques
+mpirun -np 4 ./busqueda_mpi -k 18014398509481984 -s cantor -K 16
+mpirun -np 4 ./busqueda_mpi -k 18014398509481984 -s ciclica -t 10
 ```
 
 | Opción | Descripción | Por defecto |
@@ -87,27 +93,42 @@ mpirun -np 4 ./busqueda_mpi -k 18014398509481984 -s bloques -K 18014398509481984
 | `-f archivo` | Texto a cifrar | `datos/mensaje.txt` |
 | `-k clave` | Clave secreta en decimal | `123456` |
 | `-b bits` | Explora 2^bits candidatas (1 a 56) | `56` |
-| `-t segundos` | Límite de tiempo; al cumplirse estima el tiempo total | sin límite |
+| `-t segundos` | Límite de tiempo; al cumplirse estima el tiempo hasta la clave | sin límite |
 | `-s modo` | Estrategia: `ciclica`, `bloques` o `cantor` | `ciclica` |
-| `-K tam` | Tamaño de bloque para `-s bloques` (si es mayor que 2^bits, se limita a 2^bits) | `1024` |
+| `-K num` | Sub-bloques por proceso con `-s cantor` | `16` |
 
 Estrategias de distribución con `p` procesos:
 
-- **`ciclica`**: el proceso `r` prueba las claves `r`, `r+p`, `r+2p`, ...
-- **`bloques`**: el espacio se divide en bloques de `K` claves consecutivas; el bloque `g` le toca al proceso `g % p`, que lo recorre completo antes de pasar a su siguiente bloque. Con `-K 18014398509481984` (2^56 / 4) y 4 procesos, cada proceso recibe un solo bloque contiguo.
-- **`cantor`**: la clave `n` pertenece a una anti-diagonal `w` del emparejamiento de Cantor; el proceso `r` recorre las diagonales `w = r`, `r+p`, `r+2p`, ...
+- **`ciclica`** (estrategia base): el proceso `r` prueba las claves `r`, `r+p`, `r+2p`, ...
+- **`bloques`**: el rango se parte en `p` bloques contiguos de 2^bits / p claves y cada proceso recorre el suyo en orden.
+- **`cantor`** (estrategia alternativa, dovetailing): cada bloque se parte en `K` sub-bloques y el proceso avanza una clave en cada sub-bloque por turnos, así que tiene `K` puntos de arranque en lugar de uno. Si el bloque se ve como una matriz de `K` filas, `bloques` lo lee por filas y `cantor` por columnas; `bloques` equivale a `cantor` con `K = 1`. Ninguna clave se repite ni se omite.
 
-Al terminar, los procesos se coordinan de forma asíncrona con `MPI_Isend`, `MPI_Irecv` y `MPI_Test`: cada proceso reporta al proceso 0 y este avisa a todos que la búsqueda terminó.
+La terminación es asíncrona, con `MPI_Isend`, `MPI_Irecv` y `MPI_Test`: cada proceso reporta al proceso 0 cuando encuentra la clave o agota su rango o su tiempo, y el proceso 0 avisa a todos la decisión final. Ningún proceso se bloquea esperando a los demás.
 
 ### Medición de Speedup: `medir_speedup.sh`
 
 ```bash
-./medir_speedup.sh [clave] [bits] [repeticiones]
-./medir_speedup.sh 123456 56 10    # prueba a) del enunciado
-./medir_speedup.sh 123456 24 10    # rango reducido para pruebas rápidas
+./medir_speedup.sh [-k clave] [-b bits] [-r reps] [-s ciclica|bloques|cantor] [-K sub_bloques] [-t seg]
+./medir_speedup.sh -k 123456 -r 10                          # prueba a), ciclica
+./medir_speedup.sh -k 123456 -r 10 -s cantor -K 16
+./medir_speedup.sh -k 18014398509481984 -r 1 -s cantor -t 10
 ```
 
-Primero verifica que la versión secuencial y la paralela con 4 procesos recuperen la misma clave y el mismo mensaje. Después promedia los tiempos de cada configuración (1, 2, 3 y 4 procesos) e imprime una tabla con:
+Por defecto usa la clave `123456`, 56 bits, 10 repeticiones, la estrategia `ciclica` y `K = 16`. Primero verifica que la versión secuencial y la paralela recuperen la misma clave y el mismo mensaje. Después promedia los tiempos de cada configuración (1, 2, 3 y 4 procesos) e imprime una tabla con:
 
 - Speedup = T_secuencial / T_paralelo
 - Eficiencia = Speedup / número de procesos
+
+Si una ejecución llega al límite `-t` sin encontrar la clave, se usa el tiempo estimado hasta la clave que reporta el programa (columna "Tipo" = estimado).
+
+`resultados/correr_speedups.sh` ejecuta las mediciones de las pruebas a), b) y c) y guarda cada tabla en `resultados/speedup_*.txt`.
+
+### Bitácora de pruebas: `bitacora.sh`
+
+```bash
+./bitacora.sh [limite_segundos]    # por defecto 10
+```
+
+Compila con `make -B` y ejecuta, con 4 procesos, las claves de las pruebas a) 123456, b) 18014398509481984 (2^56 / 4) y c) 18014398509481985 (2^56 / 4 + 1), más dos claves extra: 3377699720527877 (3·2^50 + 5, a mitad de un bloque) y 18014398509481983 (2^54 − 1, última clave del proceso 0). Cada clave se prueba con la versión secuencial (solo a, b y c) y con `ciclica`, `bloques`, `cantor -K 16` y `cantor -K 256`. Las búsquedas que tardarían años se cortan con el límite y el programa estima el tiempo hasta la clave.
+
+Cada salida, con el comando que la generó, queda en `resultados/<prueba>.txt`, y la tabla con el tiempo real o estimado de todas las pruebas queda en `resultados/resumen.md`.
