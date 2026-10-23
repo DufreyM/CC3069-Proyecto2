@@ -30,14 +30,20 @@ Todo el equipo construye sobre `comun.h`, así que va primero.
 - [ ] `README` del Proyecto 02 (reemplaza el del Lab 03). Se cierra cuando Cindy
       agregue `-s bloques|cantor` y se adapte `medir_speedup.sh`.
 
-**Cindy — incisos 3 y 4 (estrategia alternativa)** ⬜
-- [ ] Agregar a `busqueda_mpi.c` las opciones `-s bloques` y `-s cantor` con `-K`
+**Cindy — incisos 3 y 4 (estrategia alternativa)** 🟨 código listo
+- [x] Agregar a `busqueda_mpi.c` las opciones `-s bloques` y `-s cantor` con `-K`
       (bloques intercalados / dovetailing), en el mismo programa que la cíclica.
-- [ ] Terminación asíncrona con `MPI_Irecv` / `MPI_Test`.
+- [x] Terminación asíncrona con `MPI_Isend` / `MPI_Irecv` / `MPI_Test`: cada
+      proceso reporta al 0 y el 0 difunde el fin (reemplaza el `MPI_Allreduce`).
+      Probado con 1, 3 y 4 procesos, rango agotado y `-t`.
 - [ ] Diagramas de flujo y pseudocódigo de ambas estrategias (inciso 4).
+- [ ] Validar `-K` contra el rango: con `-K` enorme (p. ej. 2^62 y 4 procesos)
+      `size*K` se desborda y la búsqueda no termina si la clave no está.
 
 ### Fase 2 — Mediciones (después de que compile todo) — Leonardo + Cindy ⬜
-- [ ] Adaptar `medir_speedup.sh` a los binarios del Proyecto 02.
+- [x] Adaptar `medir_speedup.sh` a los binarios del Proyecto 02 (clave y bits).
+- [ ] Agregar a `medir_speedup.sh` la estrategia (`-s`, `-K`) y el límite `-t`
+      para 2^54 / 2^54+1, que no terminan en tiempo razonable.
 - [ ] Pruebas a) 123456, b) 2^54, c) 2^54+1 con cíclica, bloques y dovetailing.
 - [ ] Capturas de compilación y de cada prueba.
 - [ ] Cálculo de Speedup = T_secuencial / T_paralelo.
