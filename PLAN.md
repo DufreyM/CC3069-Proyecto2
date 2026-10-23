@@ -37,8 +37,9 @@ Todo el equipo construye sobre `comun.h`, así que va primero.
       proceso reporta al 0 y el 0 difunde el fin (reemplaza el `MPI_Allreduce`).
       Probado con 1, 3 y 4 procesos, rango agotado y `-t`.
 - [ ] Diagramas de flujo y pseudocódigo de ambas estrategias (inciso 4).
-- [ ] Validar `-K` contra el rango: con `-K` enorme (p. ej. 2^62 y 4 procesos)
-      `size*K` se desborda y la búsqueda no termina si la clave no está.
+- [x] Validar `-K` contra el rango: con `-K` enorme (p. ej. 2^62 y 4 procesos)
+      `size*K` se desbordaba y la búsqueda no terminaba. Ahora `-K` se limita
+      a 2^bits (Leonardo).
 
 ### Fase 2 — Mediciones (después de que compile todo) — Leonardo + Cindy ⬜
 - [x] Adaptar `medir_speedup.sh` a los binarios del Proyecto 02 (clave y bits).
