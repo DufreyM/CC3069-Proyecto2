@@ -1,0 +1,16 @@
+flowchart TD
+    A([Inicio]) --> B["Postear Irecv:<br/>r=0 escucha REPORTE,<br/>r>0 escucha FIN"]
+    B --> C["Probar lote de candidatas"]
+    C --> D{encontrada o<br/>agotado/tiempo?}
+    D -- "si, y no reportado" --> E["Enviar REPORTE a proceso 0<br/>(Isend, una vez)"]
+    D -- no --> F
+    E --> F{proceso 0?}
+    F -- si --> G["Test REPORTE:<br/>contar y re-Irecv"]
+    G --> H{clave hallada o<br/>p reportes?}
+    H -- si --> I["Isend FIN a todos"]
+    I --> Z([Detener])
+    H -- no --> C
+    F -- no --> J["Test FIN"]
+    J --> K{llego FIN?}
+    K -- si --> Z
+    K -- no --> C

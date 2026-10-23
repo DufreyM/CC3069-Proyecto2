@@ -1,0 +1,13 @@
+flowchart TD
+    A([Inicio]) --> B["w = r; pos = 0"]
+    B --> C["inicio = w*(w+1)/2"]
+    C --> D{inicio >= N?}
+    D -- si --> E([Agotado])
+    D -- no --> F{pos > w?}
+    F -- si --> G["w += p; pos = 0"]
+    G --> C
+    F -- no --> H["clave = inicio + pos; pos++"]
+    H --> I{clave >= N?}
+    I -- si --> C
+    I -- no --> J["entregar clave"]
+    J --> C

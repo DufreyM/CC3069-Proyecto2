@@ -31,6 +31,7 @@ Todo el equipo construye sobre `comun.h`, así que va primero.
       las opciones finales son `-s ciclica|bloques|cantor`, `-K` (sub-bloques,
       por defecto 16) y `-t`; scripts `medir_speedup.sh` y `bitacora.sh`.
 
+<<<<<<< Updated upstream
 **Cindy — incisos 3 y 4 (estrategia alternativa)** ✅
 - [x] `-s bloques` y `-s cantor -K` en `busqueda_mpi.c`. Se reimplementaron como
       en la propuesta: bloques **contiguos** de 2^bits/p por proceso, y cantor
@@ -42,6 +43,14 @@ Todo el equipo construye sobre `comun.h`, así que va primero.
 - [x] Diagramas en `diagrama/` (`generar_diagramas.py`): reparto de claves,
       flujo de `busqueda_mpi.c` y secuencia de la terminación asíncrona.
 - [x] Pseudocódigo y explicación: `informe/inciso4_estrategia_alternativa.md`.
+=======
+**Cindy — incisos 3 y 4 (estrategia alternativa)** ✅ código
+- [x] Agregar a `busqueda_mpi.c` las opciones `-s bloques` y `-s cantor` con `-K`
+      (bloques intercalados / dovetailing), en el mismo programa que la cíclica.
+- [x] Terminación asíncrona con `MPI_Irecv` / `MPI_Test`.
+- [x] Diagramas de flujo y pseudocódigo de ambas estrategias (inciso 4),
+      en `diagrama/estrategias.md`.
+>>>>>>> Stashed changes
 
 ### Fase 2 — Mediciones — Leonardo + Cindy ✅ (faltan capturas)
 - [x] `medir_speedup.sh` con `-k -b -r -s -K -t`; usa el tiempo estimado si se
