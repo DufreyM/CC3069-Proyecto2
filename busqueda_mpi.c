@@ -3,12 +3,14 @@
  *
  * Estrategias de distribucion (opcion -s):
  *   ciclica  el proceso r prueba r, r+p, r+2p, ... (por defecto).
- *   bloques  bloques intercalados de tamano K: el bloque global g lo prueba
- *            el proceso g%p; cada proceso recorre [g*K, g*K+K).
- *   cantor   dovetailing: la clave n cae en la anti-diagonal w del
- *            emparejamiento de Cantor; el proceso r recorre las diagonales
- *            w = r, r+p, r+2p, ... Asi el trabajo se reparte en franjas
- *            diagonales y se exploran primero las claves pequenas.
+ *   bloques  el rango se parte en p bloques contiguos (2^bits / p claves) y
+ *            cada proceso recorre el suyo en orden.
+ *   cantor   bloques intercalados (dovetailing): cada bloque se parte en K
+ *            sub-bloques y el proceso avanza una clave en cada sub-bloque por
+ *            turnos. Si el bloque se ve como una matriz de K filas, "bloques"
+ *            lo lee por filas y "cantor" por columnas, asi que cada proceso
+ *            tiene K puntos de arranque en lugar de uno. "bloques" equivale a
+ *            "cantor" con K = 1. Ninguna clave se repite ni se omite.
  *
  * Terminacion ASINCRONA (incisos 3 y 4): no hay MPI_Allreduce por lote.
  * Cada proceso avisa con MPI_Isend y sondea con MPI_Irecv / MPI_Test:
@@ -19,7 +21,7 @@
  *   - todos sondean ese aviso con MPI_Test y se detienen sin bloquearse.
  *
  * Uso: mpirun -np 4 ./busqueda_mpi [-f archivo] [-k clave] [-b bits]
- *            [-t seg] [-s ciclica|bloques|cantor] [-K tam_bloque]
+ *            [-t seg] [-s ciclica|bloques|cantor] [-K sub_bloques]
  */
 
 #define _POSIX_C_SOURCE 200809L
@@ -36,7 +38,7 @@
 #include "comun.h"
 
 #define CLAVE_POR_DEFECTO UINT64_C(123456)
-#define BLOQUE_POR_DEFECTO UINT64_C(1024)
+#define SUBBLOQUES_POR_DEFECTO UINT64_C(16)
 
 #define TAG_REPORTE 101
 #define TAG_FIN 102
@@ -58,7 +60,7 @@ typedef struct {
     uint64_t total;
     double limite;
     estrategia_t estrategia;
-    uint64_t bloque;
+    uint64_t subbloques;
 } opciones;
 
 /* Generador perezoso: entrega la siguiente candidata segun la estrategia.
@@ -69,14 +71,13 @@ typedef struct {
     /* ciclica */
     uint64_t candidata;
     uint64_t paso;
-    /* bloques */
-    uint64_t b_inicio;
-    uint64_t b_actual;
-    uint64_t b_resto;
-    uint64_t b_salto;
-    /* cantor */
-    uint64_t diag;
-    uint64_t diag_pos;
+    /* bloques / cantor: bloque [inicio, inicio + largo) partido en k
+     * sub-bloques (filas); se prueba la columna "columna" de la fila "fila". */
+    uint64_t inicio;
+    uint64_t largo;
+    uint64_t k;
+    uint64_t fila;
+    uint64_t columna;
 } generador;
 
 static uint64_t minimo(uint64_t a, uint64_t b)
@@ -84,77 +85,83 @@ static uint64_t minimo(uint64_t a, uint64_t b)
     return a < b ? a : b;
 }
 
+/* Reparto casi uniforme de n elementos en "partes": la parte i empieza en
+ * i*(n/partes) + min(i, n%partes) y las primeras n%partes tienen uno extra. */
+static uint64_t inicio_parte(uint64_t n, uint64_t partes, uint64_t i)
+{
+    return i * (n / partes) + minimo(i, n % partes);
+}
+
+static uint64_t largo_parte(uint64_t n, uint64_t partes, uint64_t i)
+{
+    return n / partes + (i < n % partes ? 1 : 0);
+}
+
+/* Parte que contiene al elemento x (inversa de inicio_parte). */
+static uint64_t parte_de(uint64_t n, uint64_t partes, uint64_t x)
+{
+    uint64_t base = n / partes;
+    uint64_t grandes = (n % partes) * (base + 1);
+
+    if (x < grandes) {
+        return x / (base + 1);
+    }
+    return n % partes + (x - grandes) / base;
+}
+
+/* Sub-bloques reales de un bloque: 1 para "bloques" y nunca mas que claves. */
+static uint64_t subbloques_efectivos(
+    estrategia_t estrategia, uint64_t subbloques, uint64_t largo)
+{
+    if (estrategia != EST_CANTOR || largo == 0) {
+        return 1;
+    }
+    return minimo(subbloques, largo);
+}
+
 static void generador_init(
-    generador *g, estrategia_t estrategia, int rank, int size,
-    uint64_t bloque, uint64_t total)
+    generador *g, const opciones *opt, int rank, int size)
 {
     memset(g, 0, sizeof(*g));
-    g->estrategia = estrategia;
-    g->total = total;
+    g->estrategia = opt->estrategia;
+    g->total = opt->total;
 
-    switch (estrategia) {
-    case EST_CICLICA:
+    if (opt->estrategia == EST_CICLICA) {
         g->candidata = (uint64_t)rank;
         g->paso = (uint64_t)size;
-        break;
-    case EST_BLOQUES:
-        g->b_salto = (uint64_t)size * bloque;
-        g->b_inicio = (uint64_t)rank * bloque;
-        g->b_actual = g->b_inicio;
-        g->b_resto = g->b_inicio < total
-            ? minimo(bloque, total - g->b_inicio) : 0;
-        g->paso = bloque;
-        break;
-    case EST_CANTOR:
-        g->diag = (uint64_t)rank;
-        g->diag_pos = 0;
-        g->paso = (uint64_t)size;
-        break;
+        return;
     }
+
+    g->inicio = inicio_parte(opt->total, (uint64_t)size, (uint64_t)rank);
+    g->largo = largo_parte(opt->total, (uint64_t)size, (uint64_t)rank);
+    g->k = subbloques_efectivos(opt->estrategia, opt->subbloques, g->largo);
 }
 
 static int generador_siguiente(generador *g, uint64_t *salida)
 {
-    switch (g->estrategia) {
-    case EST_CICLICA:
+    if (g->estrategia == EST_CICLICA) {
         if (g->candidata >= g->total) {
             return 0;
         }
         *salida = g->candidata;
         g->candidata += g->paso;
         return 1;
+    }
 
-    case EST_BLOQUES:
-        if (g->b_resto == 0) {
-            g->b_inicio += g->b_salto;
-            if (g->b_inicio >= g->total) {
-                return 0;
-            }
-            g->b_actual = g->b_inicio;
-            g->b_resto = minimo(g->paso, g->total - g->b_inicio);
+    /* La fila 0 es la mas larga; las filas cortas solo se saltan en la
+     * ultima columna. */
+    uint64_t columnas = largo_parte(g->largo, g->k, 0);
+
+    while (g->columna < columnas) {
+        uint64_t fila = g->fila;
+        uint64_t columna = g->columna;
+
+        if (++g->fila == g->k) {
+            g->fila = 0;
+            g->columna++;
         }
-        *salida = g->b_actual;
-        g->b_actual++;
-        g->b_resto--;
-        return 1;
-
-    case EST_CANTOR:
-        for (;;) {
-            uint64_t inicio = g->diag * (g->diag + 1) / 2;
-            if (inicio >= g->total) {
-                return 0;
-            }
-            if (g->diag_pos > g->diag) {
-                g->diag += g->paso;
-                g->diag_pos = 0;
-                continue;
-            }
-            uint64_t clave = inicio + g->diag_pos;
-            g->diag_pos++;
-            if (clave >= g->total) {
-                continue;
-            }
-            *salida = clave;
+        if (columna < largo_parte(g->largo, g->k, fila)) {
+            *salida = g->inicio + inicio_parte(g->largo, g->k, fila) + columna;
             return 1;
         }
     }
@@ -162,11 +169,36 @@ static int generador_siguiente(generador *g, uint64_t *salida)
     return 0;
 }
 
+/* Proceso al que le toca la clave e intento (desde 0) en que la prueba.
+ * Solo se usa para estimar tiempos; la busqueda no conoce la clave. */
+static void posicion_clave(
+    const opciones *opt, int size, uint64_t clave,
+    int *proceso, uint64_t *intento)
+{
+    uint64_t p = (uint64_t)size;
+
+    if (opt->estrategia == EST_CICLICA) {
+        *proceso = (int)(clave % p);
+        *intento = clave / p;
+        return;
+    }
+
+    uint64_t rank = parte_de(opt->total, p, clave);
+    uint64_t desplazamiento = clave - inicio_parte(opt->total, p, rank);
+    uint64_t largo = largo_parte(opt->total, p, rank);
+    uint64_t k = subbloques_efectivos(opt->estrategia, opt->subbloques, largo);
+    uint64_t fila = parte_de(largo, k, desplazamiento);
+    uint64_t columna = desplazamiento - inicio_parte(largo, k, fila);
+
+    *proceso = (int)rank;
+    *intento = columna * k + fila;
+}
+
 static const char *nombre_estrategia(estrategia_t estrategia)
 {
     switch (estrategia) {
     case EST_BLOQUES: return "bloques";
-    case EST_CANTOR:  return "cantor (dovetailing)";
+    case EST_CANTOR:  return "cantor (bloques intercalados)";
     case EST_CICLICA:
     default:          return "ciclica";
     }
@@ -184,15 +216,15 @@ static void uso(const char *programa)
 {
     fprintf(stderr,
         "Uso: mpirun -np <p> %s [-f archivo] [-k clave] [-b bits]"
-        " [-t segundos] [-s ciclica|bloques|cantor] [-K tam_bloque]\n"
+        " [-t segundos] [-s ciclica|bloques|cantor] [-K sub_bloques]\n"
         "  -f archivo   texto a cifrar (por defecto %s)\n"
         "  -k clave     clave secreta en decimal (por defecto %" PRIu64 ")\n"
         "  -b bits      explora 2^bits candidatas (1-%d, por defecto %d)\n"
         "  -t segundos  limite de tiempo; al cumplirse se estima el total\n"
         "  -s modo      ciclica (defecto), bloques o cantor\n"
-        "  -K tam       tamano de bloque para -s bloques (por defecto %" PRIu64 ")\n",
+        "  -K num       sub-bloques por proceso con -s cantor (por defecto %" PRIu64 ")\n",
         programa, ARCHIVO_POR_DEFECTO, CLAVE_POR_DEFECTO, MAX_BITS, MAX_BITS,
-        BLOQUE_POR_DEFECTO);
+        SUBBLOQUES_POR_DEFECTO);
 }
 
 static int leer_opciones(int argc, char *argv[], opciones *opt)
@@ -205,7 +237,7 @@ static int leer_opciones(int argc, char *argv[], opciones *opt)
     opt->bits = MAX_BITS;
     opt->limite = 0.0;
     opt->estrategia = EST_CICLICA;
-    opt->bloque = BLOQUE_POR_DEFECTO;
+    opt->subbloques = SUBBLOQUES_POR_DEFECTO;
 
     while ((opcion = getopt(argc, argv, "f:k:b:t:s:K:")) != -1) {
         switch (opcion) {
@@ -244,7 +276,7 @@ static int leer_opciones(int argc, char *argv[], opciones *opt)
             if (!parse_u64(optarg, &valor) || valor == 0) {
                 return 0;
             }
-            opt->bloque = valor;
+            opt->subbloques = valor;
             break;
         default:
             return 0;
@@ -256,12 +288,6 @@ static int leer_opciones(int argc, char *argv[], opciones *opt)
     }
 
     opt->total = UINT64_C(1) << opt->bits;
-
-    /* Un bloque mayor al rango no aporta nada y desborda size*K en el
-     * generador (la busqueda nunca terminaria). */
-    if (opt->bloque > opt->total) {
-        opt->bloque = opt->total;
-    }
     return 1;
 }
 
@@ -274,7 +300,7 @@ static uint64_t buscar(
 {
     unsigned char plano[MAX_CIFRADO];
     generador gen;
-    generador_init(&gen, opt->estrategia, rank, size, opt->bloque, opt->total);
+    generador_init(&gen, opt, rank, size);
 
     uint64_t encontrada_local = CLAVE_NO_ENCONTRADA;
     uint64_t decision = CLAVE_NO_ENCONTRADA;
@@ -464,12 +490,19 @@ int main(int argc, char *argv[])
         printf("Frase de busqueda: \"%s\"\n", FRASE_BUSQUEDA);
         printf("Rango explorado: 2^%d = %" PRIu64 " candidatas\n",
                opt.bits, opt.total);
-        if (opt.estrategia == EST_BLOQUES) {
-            printf("Tamano de bloque (K): %" PRIu64 "\n", opt.bloque);
+        if (opt.estrategia == EST_CANTOR) {
+            printf("Sub-bloques por proceso (K): %" PRIu64 "\n", opt.subbloques);
         }
 
         if (opt.secreto >= opt.total) {
             printf("Aviso: la clave secreta esta fuera del rango explorado.\n");
+        } else {
+            int proceso_clave;
+            uint64_t intento_clave;
+
+            posicion_clave(&opt, size, opt.secreto, &proceso_clave, &intento_clave);
+            printf("Posicion de la clave: proceso %d, intento %" PRIu64 "\n",
+                   proceso_clave, intento_clave + 1);
         }
 
         OPENSSL_cleanse(clave_aes, sizeof(clave_aes));
@@ -531,6 +564,16 @@ int main(int argc, char *argv[])
 
         if (encontrada == CLAVE_NO_ENCONTRADA &&
             rendimiento > 0.0 && opt.secreto < opt.total) {
+            /* El proceso dueno de la clave avanza a rendimiento/size claves/s. */
+            int proceso_clave;
+            uint64_t intento_clave;
+
+            posicion_clave(&opt, size, opt.secreto, &proceso_clave, &intento_clave);
+            double estimado = ((double)intento_clave + 1.0)
+                / (rendimiento / (double)size);
+
+            printf("Tiempo estimado hasta la clave (s): %.6g\n", estimado);
+            imprimir_duracion("Tiempo estimado hasta la clave: ", estimado);
             imprimir_duracion("Tiempo estimado (rango completo): ",
                               (double)opt.total / rendimiento);
         }
