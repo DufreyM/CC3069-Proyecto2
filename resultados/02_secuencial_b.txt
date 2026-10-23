@@ -1,0 +1,18 @@
+$ ./busqueda_secuencial -k 18014398509481984 -t 10
+Ejecucion: secuencial (AES-128-CBC)
+Archivo: datos/mensaje.txt (32 bytes)
+Texto original: Esta es una prueba de proyecto 2
+Clave secreta: 18014398509481984
+Clave AES (hex): 00000000000000000040000000000000
+IV (hex): 9c0b8973e9ba7a9b9117f84b3e68c6cd
+Texto cifrado (hex): 6ef1ddd13e50f1c91ac7ed3fbe151928ecac8657b3774b5c2e07eca992a40a3b80fb7d48fdc39b6902f3e59d94e2ac1e
+Frase de busqueda: "es una prueba de"
+Rango explorado: 2^56 = 72057594037927936 candidatas
+Resultado: LIMITE (se detuvo a los 10 s)
+Candidatas probadas: 42991616
+Tiempo: 10.015201 segundos
+Rendimiento: 4292637 claves/s
+Intentos necesarios: 18014398509481984
+Tiempo estimado hasta la clave (s): 4.19658e+09
+Tiempo estimado hasta la clave: 132.98 años
+

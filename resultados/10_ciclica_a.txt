@@ -1,0 +1,17 @@
+$ mpirun -np 4 ./busqueda_mpi -k 123456 -s ciclica -t 10
+Ejecucion: paralela (Open MPI, 4 procesos, estrategia ciclica)
+Archivo: datos/mensaje.txt (32 bytes)
+Clave secreta: 123456
+IV (hex): 51082fbf3b73c25dd830f0ffddaafbdc
+Texto cifrado (hex): 060a1eec63762ba622df6c32ace2d1824fe40fd1b5488f8564db97102e4be21bcd743c6c2e94a70e8b4f5f73e391fc17
+Frase de busqueda: "es una prueba de"
+Rango explorado: 2^56 = 72057594037927936 candidatas
+Posicion de la clave: proceso 0, intento 30865
+Resultado: ENCONTRADA
+Clave encontrada: 123456
+Texto recuperado: Esta es una prueba de proyecto 2
+Verificacion: coincide con la clave usada para cifrar
+Candidatas probadas: 129169
+Tiempo: 0.007590 segundos
+Rendimiento: 17017728 claves/s
+

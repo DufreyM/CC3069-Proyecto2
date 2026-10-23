@@ -1,0 +1,15 @@
+$ ./medir_speedup.sh -k 18014398509481985 -r 3 -s cantor -K 16 -t 10
+Escenario: clave 18014398509481985, 2^56 candidatas, estrategia cantor (K = 16), 3 repeticiones, limite 10 s
+
+Verificacion de resultados:
+  Secuencial: 
+  MPI (4):    18014398509481985 Texto recuperado: Esta es una prueba de proyecto 2
+  Al menos una version no termino; se comparan tiempos estimados.
+
+Repeticion 1/3Repeticion 2/3Repeticion 3/3
+| Procesos   | Tiempo prom (s)  | Tipo     | Speedup   | Eficiencia |
+|------------|------------------|----------|-----------|------------|
+| 1 (sec.)   |      4.19628e+09 | estimado |      1.00 |     100.0% |
+| 2          |      0.000981667 | medido   | 4.275e+12 | 2.137e+14% |
+| 3          |      5.58009e+09 | estimado |     0.752 |     25.07% |
+| 4          |         0.001885 | medido   | 2.226e+12 | 5.565e+13% |

@@ -1,0 +1,5 @@
+$ make -B
+gcc -std=c11 -O2 -Wall -Wextra busqueda_secuencial.c comun.c -o busqueda_secuencial -lcrypto
+mpicc -std=c11 -O2 -Wall -Wextra busqueda_mpi.c comun.c -o busqueda_mpi -lcrypto
+gcc -std=c11 -O2 -Wall -Wextra aes_cifrado.c comun.c -o aes_cifrado -lcrypto
+

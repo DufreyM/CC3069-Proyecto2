@@ -1,0 +1,18 @@
+$ ./busqueda_secuencial -k 123456
+Ejecucion: secuencial (AES-128-CBC)
+Archivo: datos/mensaje.txt (32 bytes)
+Texto original: Esta es una prueba de proyecto 2
+Clave secreta: 123456
+Clave AES (hex): 0000000000000000000000000001e240
+IV (hex): b398317100f11b34a2c090685dbc141e
+Texto cifrado (hex): f86e401078ae26118762721f2572b329d5325b3169a9cc309ebd938fb9d326ccd3399925c839d9a40e5d98722c364f62
+Frase de busqueda: "es una prueba de"
+Rango explorado: 2^56 = 72057594037927936 candidatas
+Resultado: ENCONTRADA
+Clave encontrada: 123456
+Texto recuperado: Esta es una prueba de proyecto 2
+Verificacion: coincide con la clave usada para cifrar
+Candidatas probadas: 123457
+Tiempo: 0.030139 segundos
+Rendimiento: 4096294 claves/s
+

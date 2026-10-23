@@ -1,0 +1,15 @@
+$ ./medir_speedup.sh -k 123456 -r 10 -s bloques
+Escenario: clave 123456, 2^56 candidatas, estrategia bloques, 10 repeticiones
+
+Verificacion de resultados:
+  Secuencial: 123456 Texto recuperado: Esta es una prueba de proyecto 2
+  MPI (4):    123456 Texto recuperado: Esta es una prueba de proyecto 2
+  Ambas versiones recuperan la misma clave y mensaje.
+
+Repeticion 1/10Repeticion 2/10Repeticion 3/10Repeticion 4/10Repeticion 5/10Repeticion 6/10Repeticion 7/10Repeticion 8/10Repeticion 9/10Repeticion 10/10
+| Procesos   | Tiempo prom (s)  | Tipo     | Speedup   | Eficiencia |
+|------------|------------------|----------|-----------|------------|
+| 1 (sec.)   |         0.031904 | medido   |      1.00 |     100.0% |
+| 2          |        0.0296289 | medido   |     1.077 |     53.84% |
+| 3          |        0.0297728 | medido   |     1.072 |     35.72% |
+| 4          |        0.0297237 | medido   |     1.073 |     26.83% |

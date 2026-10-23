@@ -1,0 +1,15 @@
+$ ./medir_speedup.sh -k 123456 -r 10 -s ciclica
+Escenario: clave 123456, 2^56 candidatas, estrategia ciclica, 10 repeticiones
+
+Verificacion de resultados:
+  Secuencial: 123456 Texto recuperado: Esta es una prueba de proyecto 2
+  MPI (4):    123456 Texto recuperado: Esta es una prueba de proyecto 2
+  Ambas versiones recuperan la misma clave y mensaje.
+
+Repeticion 1/10Repeticion 2/10Repeticion 3/10Repeticion 4/10Repeticion 5/10Repeticion 6/10Repeticion 7/10Repeticion 8/10Repeticion 9/10Repeticion 10/10
+| Procesos   | Tiempo prom (s)  | Tipo     | Speedup   | Eficiencia |
+|------------|------------------|----------|-----------|------------|
+| 1 (sec.)   |         0.030061 | medido   |      1.00 |     100.0% |
+| 2          |        0.0149122 | medido   |     2.016 |     100.8% |
+| 3          |        0.0100313 | medido   |     2.997 |     99.89% |
+| 4          |         0.007707 | medido   |       3.9 |     97.51% |

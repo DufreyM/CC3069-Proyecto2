@@ -1,0 +1,15 @@
+$ ./medir_speedup.sh -k 18014398509481985 -r 1 -s ciclica -t 10
+Escenario: clave 18014398509481985, 2^56 candidatas, estrategia ciclica, 1 repeticiones, limite 10 s
+
+Verificacion de resultados:
+  Secuencial: 
+  MPI (4):    
+  Al menos una version no termino; se comparan tiempos estimados.
+
+Repeticion 1/1
+| Procesos   | Tiempo prom (s)  | Tipo     | Speedup   | Eficiencia |
+|------------|------------------|----------|-----------|------------|
+| 1 (sec.)   |      4.21671e+09 | estimado |      1.00 |     100.0% |
+| 2          |      2.07809e+09 | estimado |     2.029 |     101.5% |
+| 3          |       1.3798e+09 | estimado |     3.056 |     101.9% |
+| 4          |      1.03453e+09 | estimado |     4.076 |     101.9% |

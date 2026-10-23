@@ -1,0 +1,18 @@
+$ mpirun -np 4 ./busqueda_mpi -k 123456 -s cantor -K 16 -t 10
+Ejecucion: paralela (Open MPI, 4 procesos, estrategia cantor (bloques intercalados))
+Archivo: datos/mensaje.txt (32 bytes)
+Clave secreta: 123456
+IV (hex): a9e59bba90d4626f546ba1eac9b1194e
+Texto cifrado (hex): 5059ade832e993208ad3b42da7bbc471ee773cd0c2b35ff6813c683d2041283ed7728880936bd9fad1da28c5766e3996
+Frase de busqueda: "es una prueba de"
+Rango explorado: 2^56 = 72057594037927936 candidatas
+Sub-bloques por proceso (K): 16
+Posicion de la clave: proceso 0, intento 1975297
+Resultado: ENCONTRADA
+Clave encontrada: 123456
+Texto recuperado: Esta es una prueba de proyecto 2
+Verificacion: coincide con la clave usada para cifrar
+Candidatas probadas: 7832577
+Tiempo: 0.451579 segundos
+Rendimiento: 17344854 claves/s
+
