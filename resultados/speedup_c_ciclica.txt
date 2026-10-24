@@ -9,7 +9,7 @@ Verificacion de resultados:
 Repeticion 1/1
 | Procesos   | Tiempo prom (s)  | Tipo     | Speedup   | Eficiencia |
 |------------|------------------|----------|-----------|------------|
-| 1 (sec.)   |      4.21671e+09 | estimado |      1.00 |     100.0% |
-| 2          |      2.07809e+09 | estimado |     2.029 |     101.5% |
-| 3          |       1.3798e+09 | estimado |     3.056 |     101.9% |
-| 4          |      1.03453e+09 | estimado |     4.076 |     101.9% |
+| 1 (sec.)   |      3.36202e+09 | estimado |      1.00 |     100.0% |
+| 2          |      1.97155e+09 | estimado |     1.705 |     85.26% |
+| 3          |      1.50606e+09 | estimado |     2.232 |     74.41% |
+| 4          |      1.14202e+09 | estimado |     2.944 |      73.6% |

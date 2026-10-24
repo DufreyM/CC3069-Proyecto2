@@ -4,15 +4,15 @@ Archivo: datos/mensaje.txt (32 bytes)
 Texto original: Esta es una prueba de proyecto 2
 Clave secreta: 18014398509481984
 Clave AES (hex): 00000000000000000040000000000000
-IV (hex): 9c0b8973e9ba7a9b9117f84b3e68c6cd
-Texto cifrado (hex): 6ef1ddd13e50f1c91ac7ed3fbe151928ecac8657b3774b5c2e07eca992a40a3b80fb7d48fdc39b6902f3e59d94e2ac1e
+IV (hex): 36f21a2645dee0c8080ab7ef81a91eb4
+Texto cifrado (hex): 99c29226fb15dd54ad0ba99ed76f357324c36435646594107f08cfecc288ae4a1a70a111f586e197d429f4eb977c620d
 Frase de busqueda: "es una prueba de"
 Rango explorado: 2^56 = 72057594037927936 candidatas
 Resultado: LIMITE (se detuvo a los 10 s)
-Candidatas probadas: 42991616
-Tiempo: 10.015201 segundos
-Rendimiento: 4292637 claves/s
+Candidatas probadas: 53215232
+Tiempo: 10.012319 segundos
+Rendimiento: 5314975 claves/s
 Intentos necesarios: 18014398509481984
-Tiempo estimado hasta la clave (s): 4.19658e+09
-Tiempo estimado hasta la clave: 132.98 años
+Tiempo estimado hasta la clave (s): 3.38937e+09
+Tiempo estimado hasta la clave: 107.40 años
 

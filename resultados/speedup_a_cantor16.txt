@@ -9,7 +9,7 @@ Verificacion de resultados:
 Repeticion 1/10Repeticion 2/10Repeticion 3/10Repeticion 4/10Repeticion 5/10Repeticion 6/10Repeticion 7/10Repeticion 8/10Repeticion 9/10Repeticion 10/10
 | Procesos   | Tiempo prom (s)  | Tipo     | Speedup   | Eficiencia |
 |------------|------------------|----------|-----------|------------|
-| 1 (sec.)   |         0.030292 | medido   |      1.00 |     100.0% |
-| 2          |         0.459262 | medido   |   0.06596 |     3.298% |
-| 3          |         0.458479 | medido   |   0.06607 |     2.202% |
-| 4          |         0.457373 | medido   |   0.06623 |     1.656% |
+| 1 (sec.)   |         0.022676 | medido   |      1.00 |     100.0% |
+| 2          |         0.470125 | medido   |   0.04823 |     2.412% |
+| 3          |         0.474931 | medido   |   0.04775 |     1.592% |
+| 4          |         0.534941 | medido   |   0.04239 |      1.06% |

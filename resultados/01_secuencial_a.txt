@@ -4,8 +4,8 @@ Archivo: datos/mensaje.txt (32 bytes)
 Texto original: Esta es una prueba de proyecto 2
 Clave secreta: 123456
 Clave AES (hex): 0000000000000000000000000001e240
-IV (hex): b398317100f11b34a2c090685dbc141e
-Texto cifrado (hex): f86e401078ae26118762721f2572b329d5325b3169a9cc309ebd938fb9d326ccd3399925c839d9a40e5d98722c364f62
+IV (hex): 95a0967c7ec90069e4fad14c29efb218
+Texto cifrado (hex): 4ef67d7da9876a86a290d2d6a8fbf4f64e785ca1d21bbebc21e221dded1c856fddff6a5ebb17c0c525198c4ada4ae0ac
 Frase de busqueda: "es una prueba de"
 Rango explorado: 2^56 = 72057594037927936 candidatas
 Resultado: ENCONTRADA
@@ -13,6 +13,6 @@ Clave encontrada: 123456
 Texto recuperado: Esta es una prueba de proyecto 2
 Verificacion: coincide con la clave usada para cifrar
 Candidatas probadas: 123457
-Tiempo: 0.030139 segundos
-Rendimiento: 4096294 claves/s
+Tiempo: 0.033066 segundos
+Rendimiento: 3733699 claves/s
 

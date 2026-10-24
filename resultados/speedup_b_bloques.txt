@@ -9,7 +9,7 @@ Verificacion de resultados:
 Repeticion 1/3Repeticion 2/3Repeticion 3/3
 | Procesos   | Tiempo prom (s)  | Tipo     | Speedup   | Eficiencia |
 |------------|------------------|----------|-----------|------------|
-| 1 (sec.)   |      4.20665e+09 | estimado |      1.00 |     100.0% |
-| 2          |      4.18974e+09 | estimado |     1.004 |      50.2% |
-| 3          |      4.18699e+09 | estimado |     1.005 |     33.49% |
-| 4          |       0.00164767 | medido   | 2.553e+12 | 6.383e+13% |
+| 1 (sec.)   |      3.27289e+09 | estimado |      1.00 |     100.0% |
+| 2          |      4.08541e+09 | estimado |    0.8011 |     40.06% |
+| 3          |      4.32851e+09 | estimado |    0.7561 |      25.2% |
+| 4          |       0.00131833 | medido   | 2.483e+12 | 6.206e+13% |

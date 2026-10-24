@@ -2,16 +2,16 @@ $ mpirun -np 4 ./busqueda_mpi -k 18014398509481985 -s ciclica -t 10
 Ejecucion: paralela (Open MPI, 4 procesos, estrategia ciclica)
 Archivo: datos/mensaje.txt (32 bytes)
 Clave secreta: 18014398509481985
-IV (hex): dda6f29259f9f3298a34a5ff6e4963b8
-Texto cifrado (hex): 397d6ea7f47a671daebfcdb7e405fc03dcbd80a5ed0f5d3d6cfea0c17bcf105eb706611e17cb4469e4b3c85c31b6cd08
+IV (hex): ed77e45a513961badebefd6d1f85bbcc
+Texto cifrado (hex): 13e752a793fa65a7f675c42f195c1a86efb901a6296f51c51d2fdd52dbb27290413c6b11926d11245aece4a0b8fdba00
 Frase de busqueda: "es una prueba de"
 Rango explorado: 2^56 = 72057594037927936 candidatas
 Posicion de la clave: proceso 1, intento 4503599627370497
 Resultado: no se encontro la clave (rango agotado o limite de tiempo)
-Candidatas probadas: 173469696
-Tiempo: 10.000674 segundos
-Rendimiento: 17345800 claves/s
-Tiempo estimado hasta la clave (s): 1.03855e+09
-Tiempo estimado hasta la clave: 32.91 años
-Tiempo estimado (rango completo): 131.64 años
+Candidatas probadas: 157724672
+Tiempo: 10.000587 segundos
+Rendimiento: 15771541 claves/s
+Tiempo estimado hasta la clave (s): 1.14221e+09
+Tiempo estimado hasta la clave: 36.19 años
+Tiempo estimado (rango completo): 144.78 años
 

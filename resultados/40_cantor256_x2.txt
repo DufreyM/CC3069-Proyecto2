@@ -2,17 +2,17 @@ $ mpirun -np 4 ./busqueda_mpi -k 18014398509481983 -s cantor -K 256 -t 10
 Ejecucion: paralela (Open MPI, 4 procesos, estrategia cantor (bloques intercalados))
 Archivo: datos/mensaje.txt (32 bytes)
 Clave secreta: 18014398509481983
-IV (hex): b95d79e0ac6d7b2cd946f2c8cbb3f8e6
-Texto cifrado (hex): b5126e5712d44981e516e6a8e886a7a239063c9c9dc72fd5f9469a3e8aea5ed152827d179a63274bdee14b6efb829b5a
+IV (hex): 7118cd94ae387f5f77798f7728a8d700
+Texto cifrado (hex): 1748ed7cc6d70528550b98d9e86b2aa35bf892bfaa689443e95624c8941818d6e810b3b0d8dceb1ec476e12f3a552549
 Frase de busqueda: "es una prueba de"
 Rango explorado: 2^56 = 72057594037927936 candidatas
 Sub-bloques por proceso (K): 256
 Posicion de la clave: proceso 0, intento 18014398509481984
 Resultado: no se encontro la clave (rango agotado o limite de tiempo)
-Candidatas probadas: 171659264
-Tiempo: 10.000909 segundos
-Rendimiento: 17164365 claves/s
-Tiempo estimado hasta la clave (s): 4.19809e+09
-Tiempo estimado hasta la clave: 133.03 años
-Tiempo estimado (rango completo): 133.03 años
+Candidatas probadas: 152936448
+Tiempo: 10.000866 segundos
+Rendimiento: 15292320 claves/s
+Tiempo estimado hasta la clave (s): 4.71201e+09
+Tiempo estimado hasta la clave: 149.31 años
+Tiempo estimado (rango completo): 149.31 años
 
